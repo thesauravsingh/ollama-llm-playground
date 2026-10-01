@@ -1,0 +1,25 @@
+# Core LangChain + Ollama
+langchain
+langchain-core
+langchain-community
+langchain-ollama
+langchain-text-splitters
+
+# PDF handling
+unstructured[all-docs]
+pdfplumber
+pdf2image
+pytesseract
+
+# Vector store + embedding
+chromadb
+fastembed
+sentence-transformers
+
+# Optional TTS
+elevenlabs
+
+# NLP tools
+nltk
+Pillow
+numpy

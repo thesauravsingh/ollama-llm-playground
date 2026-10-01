@@ -1,0 +1,160 @@
+# === Imports ===
+import nltk
+import ollama
+from pathlib import Path
+
+from langchain_community.document_loaders import UnstructuredPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_ollama import OllamaEmbeddings, ChatOllama
+from langchain.prompts import PromptTemplate, ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from langchain.retrievers.multi_query import MultiQueryRetriever
+
+
+# === Constants ===
+PDF_PATH = "./data/ai_history_sample.pdf"
+CHUNK_SIZE = 1200
+CHUNK_OVERLAP = 300
+EMBED_MODEL = "nomic-embed-text"
+LLM_MODEL = "llama3.2"
+COLLECTION_NAME = "simple_rag"
+QUESTION = "what are the main observations?"
+
+
+# === Setup Functions ===
+
+def ensure_nltk_models():
+    try:
+        nltk.data.find("tokenizers/punkt")
+    except LookupError:
+        nltk.download("punkt")
+
+    try:
+        nltk.data.find("taggers/averaged_perceptron_tagger")
+    except LookupError:
+        nltk.download("averaged_perceptron_tagger")
+
+
+def ensure_ollama_model(model_name):
+    try:
+        ollama.pull(model_name)
+    except Exception:
+        raise RuntimeError(f"❌ Ollama model '{model_name}' not found or Ollama is not running.")
+
+
+# === Pipeline Functions ===
+
+def load_pdf(path):
+    if not Path(path).exists():
+        raise FileNotFoundError(f"❌ File not found: {path}")
+    loader = UnstructuredPDFLoader(file_path=path)
+    return loader.load()
+
+
+def split_into_chunks(docs):
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP
+    )
+    return splitter.split_documents(docs)
+
+
+def embed_chunks(chunks):
+    embeddings = OllamaEmbeddings(model=EMBED_MODEL)
+    return Chroma.from_documents(
+        documents=chunks,
+        embedding=embeddings,
+        collection_name=COLLECTION_NAME,
+    )
+
+
+def create_retriever(vector_db, llm):
+    query_prompt = PromptTemplate(
+        input_variables=["question"],
+        template="""You are an AI language model assistant. Your task is to answer 5 different versions of the given user question
+    to retrieve relevant information from a vector database. By generating multiple perspective on the user question, your goal is 
+    to help user overcome some of the limitations of the distance based similarity search. Provide these alternative questions seperated 
+    by newlines.  Original question is:
+{question}"""
+    )
+
+    return MultiQueryRetriever.from_llm(
+        retriever=vector_db.as_retriever(),
+        llm=llm,
+        prompt=query_prompt
+    )
+
+
+def build_rag_chain(llm, retriever):
+    prompt = ChatPromptTemplate.from_template(
+        """Answer the questions based only on the following context. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+{context}
+Question: {question}"""
+    )
+
+    return (
+        {"context": retriever, "question": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+
+
+# === Main ===
+
+def main():
+    print("📦 Ensuring NLTK resources...")
+    ensure_nltk_models()
+
+    print(f"📥 Loading PDF: {PDF_PATH}")
+    documents = load_pdf(PDF_PATH)
+    print("✅ PDF loaded.")
+
+    print("🧩 Splitting document into chunks...")
+    chunks = split_into_chunks(documents)
+    print(f"✅ Done splitting. {len(chunks)} chunks created.")
+
+    print("🔗 Pulling Ollama embedding model...")
+    ensure_ollama_model(EMBED_MODEL)
+
+    print("📚 Embedding chunks and storing in vector DB...")
+    vector_db = embed_chunks(chunks)
+    print("✅ Done embedding.")
+
+    print("💬 Initializing LLM and retriever...")
+    llm = ChatOllama(model=LLM_MODEL, temperature=0.1)
+    retriever = create_retriever(vector_db, llm)
+
+    print("⚙️ Building RAG chain...")
+    chain = build_rag_chain(llm, retriever)
+
+    # === Ask question ===
+     # === Ask questions in a loop ===
+    print("\n🧠 You can now ask questions about the PDF.")
+    print("💡 Type 'exit' to quit.\n")
+
+    while True:
+        try:
+            question = input("❓ Enter your question: ").strip()
+            if question.lower() in {"exit", "quit"}:
+                print("👋 Exiting. Goodbye!")
+                break
+            if not question:
+                print("⚠️ Please enter a valid question.\n")
+                continue
+
+            print("\n💬 Answering...\n")
+            result = chain.invoke({"question": question})
+            print(f"🧠 Answer:\n{result}\n")
+
+        except KeyboardInterrupt:
+            print("\n👋 Exiting. Goodbye!")
+            break
+
+
+# === Entrypoint ===
+
+if __name__ == "__main__":
+    main()
