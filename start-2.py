@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # read OLLAMA_HOST etc. from .env before ollama is imported
+
 import ollama
 
 response = ollama.list()

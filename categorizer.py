@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # read OLLAMA_HOST etc. from .env before ollama is imported
+
 import ollama
 import os
 
@@ -19,6 +22,9 @@ prompt = f"""
 1. You are a grocery categorizer. Categorize the following grocery items into their respective categories.
 2. Sort the items alphabetically within each category.
 3. Present the categorized items in a structured format using bullet points and numbering.
+
+Grocery items:
+{grocery_list}
 """
 
 #Send the prompt and get the response

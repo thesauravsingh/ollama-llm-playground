@@ -4,6 +4,8 @@ langchain-core
 langchain-community
 langchain-ollama
 langchain-text-splitters
+langchain-classic   # MultiQueryRetriever (moved out of langchain in v1)
+langchain-chroma
 
 # PDF handling
 unstructured[all-docs]
@@ -23,3 +25,6 @@ elevenlabs
 nltk
 Pillow
 numpy
+
+# Config
+python-dotenv

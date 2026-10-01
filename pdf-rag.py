@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # read OLLAMA_HOST etc. from .env before ollama is imported
+
 ## 1. ingest pdf files
 # 2. extract text from pdf files and split into chunks
 # 3. send the chunks to the embedding model
@@ -47,8 +50,8 @@ print(content[:1000])  # Display the first 1000 characters of the content
 
 # ====  Extract text from PDF files and split into chunks ====
 from langchain_ollama import OllamaEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
 
 #Split the text into chunks
 text_splitter = RecursiveCharacterTextSplitter(
@@ -73,11 +76,11 @@ vector_db = Chroma.from_documents(
 print("done embedding....")
 
 ## === Retrieval ====
-from langchain.prompts import PromptTemplate, ChatPromptTemplate
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_ollama import ChatOllama
 from langchain_core.runnables import RunnablePassthrough
-from langchain.retrievers.multi_query import MultiQueryRetriever
+from langchain_classic.retrievers.multi_query import MultiQueryRetriever
 
 # set up our model to use
 llm  = ChatOllama(model=model, temperature=0.1)
